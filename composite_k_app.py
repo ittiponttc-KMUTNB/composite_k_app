@@ -82,6 +82,7 @@ DEFAULT_MATERIALS = {
     "รองผิวทางคอนกรีตด้วย AC":                     2500,
     "หินคลุกปรับปรุงคุณภาพด้วยปูนซีเมนต์ (CTB)":  1200,
     "หินคลุกผสมซีเมนต์ UCS 24.5 ksc":              850,
+    "หินคลุก CBR 80%":                              350,
     "ดินซีเมนต์ UCS 17.5 ksc":                      350,
     "รองพื้นทางวัสดุมวลรวม CBR 25%":               150,
     "วัสดุคัดเลือก ก":                              100,
@@ -223,7 +224,7 @@ class CompositeK:
     # ------------------------------------------------------------------
     def mode_A(self, MR_psi: float, k_target_pci: float,
                E_psi: float) -> dict:
-        D_required_in = self.upper.get_D(E_psi, k_target_pci)
+        D_required_in = self.upper.get_D(E_psi, k_target_pci, MR_psi=MR_psi)
         D_required_cm = D_required_in / CM_TO_INCH
         D_from_turning = self.turning.mr_to_dsb(MR_psi)
         return {
@@ -241,7 +242,7 @@ class CompositeK:
     # ------------------------------------------------------------------
     def mode_B(self, MR_psi: float, k_target_pci: float,
                D_in: float) -> dict:
-        E_required_psi = self.upper.get_E(D_in, k_target_pci)
+        E_required_psi = self.upper.get_E(D_in, k_target_pci, MR_psi=MR_psi)
         E_required_MPa = E_required_psi / MPa_TO_PSI
         return {
             "mode": "B",
@@ -272,7 +273,7 @@ class CompositeK:
     def mode_D(self, E_psi: float, D_in: float,
                k_pci: float) -> dict:
         MR = self.turning.dsb_to_mr(D_in)
-        k_check = self.upper.get_k(E_psi, D_in)
+        k_check = self.upper.get_k(E_psi, D_in, MR_psi=4500)
         return {
             "mode": "D",
             "E_SB_psi":    E_psi,
@@ -326,7 +327,7 @@ class CompositeK:
         results = []
         for name, E_MPa in DEFAULT_MATERIALS.items():
             E_psi = E_MPa * MPa_TO_PSI
-            D_in  = self.upper.get_D(E_psi, k_target_pci, MR_psi=4500)
+            D_in  = self.upper.get_D(E_psi, k_target_pci, MR_psi=MR_psi)
             D_cm  = D_in / CM_TO_INCH if not np.isnan(D_in) else float('nan')
             results.append({
                 "material":   name,
@@ -471,6 +472,14 @@ with tab1:
     mat_names = list(DEFAULT_MATERIALS.keys())
     layers = []
 
+    # callback: เมื่อเปลี่ยน selectbox -> sync ค่า E
+    def sync_E(i):
+        mat_key = f"mat_{i}"
+        e_key   = f"E_{i}"
+        mat_sel = st.session_state.get(mat_key, "(กำหนดเอง)")
+        if mat_sel in DEFAULT_MATERIALS:
+            st.session_state[e_key] = DEFAULT_MATERIALS[mat_sel]
+
     for i in range(st.session_state.n_layers):
         with st.expander(f"ชั้นที่ {i+1}", expanded=True):
             lc1, lc2, lc3 = st.columns([3, 2, 2])
@@ -479,13 +488,19 @@ with tab1:
                     "ชนิดวัสดุ",
                     options=["(กำหนดเอง)"] + mat_names,
                     key=f"mat_{i}",
-                    index=i % len(mat_names) + 1
+                    index=i % len(mat_names) + 1,
+                    on_change=sync_E,
+                    args=(i,)
                 )
             with lc2:
                 default_E = DEFAULT_MATERIALS.get(mat, 300)
+                # ใช้ค่าจาก session_state ถ้ามี ไม่งั้นใช้ default
+                e_key = f"E_{i}"
+                if e_key not in st.session_state:
+                    st.session_state[e_key] = default_E
                 E_val = st.number_input(
                     "E (MPa)", min_value=10, max_value=5000,
-                    value=default_E, step=50, key=f"E_{i}"
+                    step=50, key=e_key
                 )
             with lc3:
                 D_val = st.number_input(
@@ -620,7 +635,7 @@ with tab2:
     fig2, ax2 = plt.subplots(figsize=(10, 5))
 
     E_range = np.logspace(np.log10(15000), np.log10(1000000), 200)
-    D_curve = [ck.upper.get_D(e, k2) for e in E_range]
+    D_curve = [ck.upper.get_D(e, k2, MR_psi=MR2) for e in E_range]
     valid   = [(e, d) for e, d in zip(E_range, D_curve)
                if not np.isnan(d) and 0.5 <= d <= 20]
     if valid:
