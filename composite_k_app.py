@@ -1,0 +1,423 @@
+"""
+composite_k_app.py
+==================
+Streamlit App: AASHTO 1993 Figure 3.3
+Composite Modulus of Subgrade Reaction
+"""
+
+import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from composite_k_nomograph import (
+    CompositeK, calc_E_eq,
+    DEFAULT_MATERIALS, MPa_TO_PSI, CM_TO_INCH
+)
+
+st.set_page_config(
+    page_title="Composite k — AASHTO 1993",
+    page_icon="🛣️",
+    layout="wide"
+)
+
+# =============================================================================
+# Custom CSS
+# =============================================================================
+st.markdown("""
+<style>
+.block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+.stTabs [data-baseweb="tab-list"] {gap: 4px;}
+.stTabs [data-baseweb="tab"] {padding: 8px 20px; border-radius: 8px 8px 0 0;}
+.metric-card {
+    background: #f8f9fa; border: 1px solid #dee2e6;
+    border-radius: 10px; padding: 14px 18px; text-align: center;
+}
+.metric-label {font-size: 13px; color: #6c757d; margin-bottom: 4px;}
+.metric-value {font-size: 22px; font-weight: 600; color: #212529;}
+.metric-unit  {font-size: 12px; color: #adb5bd; margin-top: 2px;}
+.pass-badge {background:#d4edda; color:#155724; padding:3px 12px;
+             border-radius:20px; font-size:13px; font-weight:500;}
+.fail-badge {background:#f8d7da; color:#721c24; padding:3px 12px;
+             border-radius:20px; font-size:13px; font-weight:500;}
+.section-header {
+    font-size: 15px; font-weight: 600; color: #495057;
+    border-bottom: 2px solid #dee2e6; padding-bottom: 6px;
+    margin-bottom: 14px; margin-top: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# Initialize
+# =============================================================================
+@st.cache_resource
+def get_model():
+    return CompositeK()
+
+ck = get_model()
+
+# =============================================================================
+# Header
+# =============================================================================
+st.title("🛣️ Composite Modulus of Subgrade Reaction")
+st.caption("AASHTO 1993 — Figure 3.3 | แทน Nomograph ด้วยสมการ Interpolation")
+st.divider()
+
+# =============================================================================
+# Tabs
+# =============================================================================
+tab1, tab2, tab3 = st.tabs([
+    "📐 ออกแบบชั้นทาง (หลายชั้น)",
+    "📊 เปรียบเทียบวัสดุ (Single Layer)",
+    "🔧 คำนวณ k∞ โดยตรง"
+])
+
+# =============================================================================
+# TAB 1: Multi-layer Design
+# =============================================================================
+with tab1:
+    st.markdown('<div class="section-header">ข้อมูลดินเดิม (Subgrade)</div>',
+                unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        cbr = st.number_input("CBR ดินคันทาง (%)", min_value=1.0,
+                               max_value=100.0, value=3.0, step=0.5,
+                               format="%.1f", key="t1_cbr")
+    MR_psi = cbr * 1500
+    with c2:
+        st.markdown(f"""
+        <div class="metric-card">
+          <div class="metric-label">M<sub>R</sub> (คำนวณ)</div>
+          <div class="metric-value">{MR_psi:,.0f}</div>
+          <div class="metric-unit">psi = CBR × 1,500</div>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        k_target = st.number_input("k∞ เป้าหมาย (pci)", min_value=50,
+                                    max_value=2000, value=200, step=50,
+                                    key="t1_k")
+
+    st.markdown('<div class="section-header">ชั้นวัสดุชั้นทาง</div>',
+                unsafe_allow_html=True)
+
+    # Dynamic layer input
+    if "n_layers" not in st.session_state:
+        st.session_state.n_layers = 2
+
+    col_add, col_del, _ = st.columns([1, 1, 6])
+    with col_add:
+        if st.button("➕ เพิ่มชั้น", use_container_width=True):
+            if st.session_state.n_layers < 5:
+                st.session_state.n_layers += 1
+    with col_del:
+        if st.button("➖ ลบชั้น", use_container_width=True):
+            if st.session_state.n_layers > 1:
+                st.session_state.n_layers -= 1
+
+    mat_names = list(DEFAULT_MATERIALS.keys())
+    layers = []
+
+    for i in range(st.session_state.n_layers):
+        with st.expander(f"ชั้นที่ {i+1}", expanded=True):
+            lc1, lc2, lc3 = st.columns([3, 2, 2])
+            with lc1:
+                mat = st.selectbox(
+                    "ชนิดวัสดุ",
+                    options=["(กำหนดเอง)"] + mat_names,
+                    key=f"mat_{i}",
+                    index=i % len(mat_names) + 1
+                )
+            with lc2:
+                default_E = DEFAULT_MATERIALS.get(mat, 300)
+                E_val = st.number_input(
+                    "E (MPa)", min_value=10, max_value=5000,
+                    value=default_E, step=50, key=f"E_{i}"
+                )
+            with lc3:
+                D_val = st.number_input(
+                    "ความหนา (cm)", min_value=1.0, max_value=100.0,
+                    value=20.0 if i == 0 else 15.0,
+                    step=1.0, format="%.1f", key=f"D_{i}"
+                )
+
+            # แสดง conversion
+            st.caption(
+                f"E = {E_val} MPa = {E_val * MPa_TO_PSI:,.0f} psi  |  "
+                f"D = {D_val} cm = {D_val * CM_TO_INCH:.3f} นิ้ว"
+            )
+            layers.append({
+                "name":  mat if mat != "(กำหนดเอง)" else f"ชั้นที่ {i+1}",
+                "E_MPa": E_val,
+                "D_cm":  D_val
+            })
+
+    st.divider()
+
+    # คำนวณ
+    if layers:
+        E_eq_MPa, E_eq_psi, D_total_cm, D_total_in = calc_E_eq(layers)
+        result = ck.multilayer_k(layers, MR_psi)
+        k_actual = result["k_actual_pci"]
+        passed   = k_actual >= k_target
+
+        st.markdown('<div class="section-header">ผลการคำนวณ</div>',
+                    unsafe_allow_html=True)
+
+        m1, m2, m3, m4, m5 = st.columns(5)
+        cards = [
+            (m1, "E<sub>eq</sub>", f"{E_eq_MPa:,.1f}", "MPa"),
+            (m2, "E<sub>eq</sub>", f"{E_eq_psi:,.0f}", "psi"),
+            (m3, "D<sub>total</sub>", f"{D_total_cm:.1f}", "cm"),
+            (m4, "D<sub>total</sub>", f"{D_total_in:.3f}", "นิ้ว"),
+            (m5, "k∞ ที่ได้จริง", f"{k_actual:.0f}", "pci"),
+        ]
+        for col, label, val, unit in cards:
+            with col:
+                st.markdown(f"""
+                <div class="metric-card">
+                  <div class="metric-label">{label}</div>
+                  <div class="metric-value">{val}</div>
+                  <div class="metric-unit">{unit}</div>
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Pass/Fail
+        badge = "pass-badge" if passed else "fail-badge"
+        symbol = "✅" if passed else "❌"
+        st.markdown(
+            f'<div style="text-align:center; font-size:18px;">'
+            f'<span class="{badge}">{symbol} k∞ actual = {k_actual:.0f} pci '
+            f'{"≥" if passed else "<"} k∞ target = {k_target} pci — '
+            f'{"ผ่าน" if passed else "ไม่ผ่าน"}</span></div>',
+            unsafe_allow_html=True
+        )
+
+        # สรุปตาราง
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("**สรุปชั้นวัสดุ**")
+        import pandas as pd
+        rows = []
+        for idx, L in enumerate(layers):
+            rows.append({
+                "ชั้น": f"ชั้นที่ {idx+1}",
+                "วัสดุ": L["name"],
+                "E (MPa)": L["E_MPa"],
+                "E (psi)": f"{L['E_MPa']*MPa_TO_PSI:,.0f}",
+                "ความหนา (cm)": L["D_cm"],
+                "ความหนา (นิ้ว)": f"{L['D_cm']*CM_TO_INCH:.3f}",
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True,
+                     hide_index=True)
+
+        # กราฟ Layer
+        fig, ax = plt.subplots(figsize=(8, 3.5))
+        colors = ["#4C9BE8", "#5CB85C", "#F0AD4E", "#D9534F", "#9B59B6"]
+        y = 0
+        for idx, L in enumerate(layers):
+            ax.barh(y=0, width=L["D_cm"], left=y,
+                    color=colors[idx % len(colors)], edgecolor="white",
+                    height=0.6, label=f"ชั้นที่ {idx+1}: {L['name'][:20]}")
+            ax.text(y + L["D_cm"]/2, 0,
+                    f"{L['D_cm']:.0f} cm\n{L['E_MPa']} MPa",
+                    ha='center', va='center', fontsize=10,
+                    color='white', fontweight='bold')
+            y += L["D_cm"]
+        ax.set_xlabel("ความหนาสะสม (cm)", fontsize=11)
+        ax.set_yticks([])
+        ax.legend(loc='upper right', fontsize=10)
+        ax.set_title("โครงสร้างชั้นทาง", fontsize=13, fontweight='bold')
+        ax.set_xlim(0, y * 1.1)
+        fig.tight_layout()
+        st.pyplot(fig)
+        plt.close()
+
+
+# =============================================================================
+# TAB 2: Single Layer Material Comparison
+# =============================================================================
+with tab2:
+    st.markdown('<div class="section-header">ข้อมูลดินเดิม (Subgrade)</div>',
+                unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        cbr2 = st.number_input("CBR ดินคันทาง (%)", min_value=1.0,
+                                max_value=100.0, value=3.0, step=0.5,
+                                format="%.1f", key="t2_cbr")
+    MR2 = cbr2 * 1500
+    with c2:
+        st.markdown(f"""
+        <div class="metric-card">
+          <div class="metric-label">M<sub>R</sub> (คำนวณ)</div>
+          <div class="metric-value">{MR2:,.0f}</div>
+          <div class="metric-unit">psi</div>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        k2 = st.number_input("k∞ เป้าหมาย (pci)", min_value=50,
+                              max_value=2000, value=200, step=50, key="t2_k")
+
+    st.markdown('<div class="section-header">ความหนาที่ต้องการ (Single Layer)</div>',
+                unsafe_allow_html=True)
+
+    results = ck.required_thickness_per_material(MR2, k2)
+
+    # กราฟ E_SB vs D_SB
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+
+    E_range = np.logspace(np.log10(15000), np.log10(1000000), 200)
+    D_curve = [ck.upper.get_D(e, k2) for e in E_range]
+    valid   = [(e, d) for e, d in zip(E_range, D_curve)
+               if not np.isnan(d) and 0.5 <= d <= 20]
+    if valid:
+        ex, dx = zip(*valid)
+        ax2.plot(ex, dx, 'b-', linewidth=2.5,
+                 label=f'k∞ = {k2} pci (required curve)')
+
+    colors2 = ["#E74C3C","#E67E22","#27AE60","#2980B9","#8E44AD","#16A085","#2C3E50"]
+    for idx, r in enumerate(results):
+        if r["D_req_in"] and r["E_psi"]:
+            ax2.scatter(r["E_psi"], r["D_req_in"],
+                        color=colors2[idx % len(colors2)],
+                        s=120, zorder=5)
+            ax2.annotate(
+                f"{r['material'][:18]}\n{r['D_req_cm']:.1f} cm",
+                xy=(r["E_psi"], r["D_req_in"]),
+                xytext=(10, 8), textcoords='offset points',
+                fontsize=8.5, color=colors2[idx % len(colors2)]
+            )
+
+    ax2.set_xscale('log')
+    ax2.set_xlabel("E_SB (psi)", fontsize=12)
+    ax2.set_ylabel("D_SB required (inches)", fontsize=12)
+    ax2.set_title(f"E_SB vs D_SB Required  |  CBR={cbr2}%  M_R={MR2:,} psi  k∞={k2} pci",
+                  fontsize=12, fontweight='bold')
+    ax2.grid(True, which='both', alpha=0.3)
+    ax2.legend(fontsize=10)
+    fig2.tight_layout()
+    st.pyplot(fig2)
+    plt.close()
+
+    # ตาราง
+    import pandas as pd
+    df_rows = []
+    for r in results:
+        df_rows.append({
+            "วัสดุ":           r["material"],
+            "E (MPa)":         r["E_MPa"],
+            "E (psi)":         f"{r['E_psi']:,}",
+            "D required (นิ้ว)": f"{r['D_req_in']:.3f}" if r['D_req_in'] else "—",
+            "D required (cm)": f"{r['D_req_cm']:.1f}" if r['D_req_cm'] else "—",
+        })
+    st.dataframe(pd.DataFrame(df_rows), use_container_width=True,
+                 hide_index=True)
+
+
+# =============================================================================
+# TAB 3: Direct k∞ Calculation (4 Modes)
+# =============================================================================
+with tab3:
+    st.markdown('<div class="section-header">เลือก Mode การคำนวณ</div>',
+                unsafe_allow_html=True)
+
+    mode = st.radio(
+        "Mode",
+        options=[
+            "A — กำหนด M_R + k∞ + E_SB → หา D_SB",
+            "B — กำหนด M_R + k∞ + D_SB → หา E_SB",
+            "C — กำหนด M_R + E_SB + D_SB → หา k∞",
+            "D — กำหนด E_SB + D_SB + k∞ → หา M_R",
+        ],
+        horizontal=False,
+        key="mode_sel"
+    )
+    mode_key = mode[0]
+
+    st.markdown('<div class="section-header">Input</div>',
+                unsafe_allow_html=True)
+
+    mc1, mc2, mc3 = st.columns(3)
+
+    if mode_key == "A":
+        with mc1:
+            cbr3 = st.number_input("CBR (%)", 1.0, 100.0, 3.0, 0.5, key="m_cbr")
+            MR3  = cbr3 * 1500
+            st.caption(f"M_R = {MR3:,.0f} psi")
+        with mc2:
+            k3 = st.number_input("k∞ target (pci)", 50, 2000, 200, 50, key="m_k")
+        with mc3:
+            E3_MPa = st.number_input("E_SB (MPa)", 10, 5000, 850, 50, key="m_e")
+            E3_psi = E3_MPa * MPa_TO_PSI
+            st.caption(f"= {E3_psi:,.0f} psi")
+
+        if st.button("คำนวณ", type="primary", key="btn_A"):
+            r = ck.mode_A(MR3, k3, E3_psi)
+            st.success(
+                f"**D_SB required = {r['D_required_in']:.3f} นิ้ว "
+                f"= {r['D_required_cm']:.1f} cm**"
+            )
+
+    elif mode_key == "B":
+        with mc1:
+            cbr3 = st.number_input("CBR (%)", 1.0, 100.0, 3.0, 0.5, key="m_cbr")
+            MR3  = cbr3 * 1500
+            st.caption(f"M_R = {MR3:,.0f} psi")
+        with mc2:
+            k3 = st.number_input("k∞ target (pci)", 50, 2000, 200, 50, key="m_k")
+        with mc3:
+            D3_cm = st.number_input("D_SB (cm)", 1.0, 100.0, 20.0, 1.0, key="m_d")
+            D3_in = D3_cm * CM_TO_INCH
+            st.caption(f"= {D3_in:.3f} นิ้ว")
+
+        if st.button("คำนวณ", type="primary", key="btn_B"):
+            r = ck.mode_B(MR3, k3, D3_in)
+            st.success(
+                f"**E_SB required = {r['E_required_psi']:,.0f} psi "
+                f"= {r['E_required_MPa']:.1f} MPa**"
+            )
+
+    elif mode_key == "C":
+        with mc1:
+            cbr3 = st.number_input("CBR (%)", 1.0, 100.0, 3.0, 0.5, key="m_cbr")
+            MR3  = cbr3 * 1500
+            st.caption(f"M_R = {MR3:,.0f} psi")
+        with mc2:
+            E3_MPa = st.number_input("E_SB (MPa)", 10, 5000, 850, 50, key="m_e")
+            E3_psi = E3_MPa * MPa_TO_PSI
+            st.caption(f"= {E3_psi:,.0f} psi")
+        with mc3:
+            D3_cm = st.number_input("D_SB (cm)", 1.0, 100.0, 20.0, 1.0, key="m_d")
+            D3_in = D3_cm * CM_TO_INCH
+            st.caption(f"= {D3_in:.3f} นิ้ว")
+
+        if st.button("คำนวณ", type="primary", key="btn_C"):
+            r = ck.mode_C(MR3, E3_psi, D3_in)
+            st.success(f"**k∞ = {r['k_actual_pci']:.1f} pci**")
+
+    else:  # Mode D
+        with mc1:
+            E3_MPa = st.number_input("E_SB (MPa)", 10, 5000, 850, 50, key="m_e")
+            E3_psi = E3_MPa * MPa_TO_PSI
+            st.caption(f"= {E3_psi:,.0f} psi")
+        with mc2:
+            D3_cm = st.number_input("D_SB (cm)", 1.0, 100.0, 20.0, 1.0, key="m_d")
+            D3_in = D3_cm * CM_TO_INCH
+            st.caption(f"= {D3_in:.3f} นิ้ว")
+        with mc3:
+            k3 = st.number_input("k∞ (pci)", 50, 2000, 200, 50, key="m_k")
+
+        if st.button("คำนวณ", type="primary", key="btn_D"):
+            r = ck.mode_D(E3_psi, D3_in, k3)
+            cbr_back = r['MR_psi'] / 1500
+            st.success(
+                f"**M_R = {r['MR_psi']:,.0f} psi  →  CBR ≈ {cbr_back:.1f}%**"
+            )
+            st.info(f"k∞ check (จาก E+D) = {r['k_check_pci']:.1f} pci")
+
+    # อ้างอิง
+    st.divider()
+    st.caption(
+        "อ้างอิง: AASHTO Guide for Design of Pavement Structures 1993, Figure 3.3 | "
+        "E_eq คำนวณโดย Odemark Weighted Method | "
+        "Interpolation: RBF Thin-Plate Spline (scipy)"
+    )
