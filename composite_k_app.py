@@ -1,3 +1,14 @@
+import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import pandas as pd
+import warnings
+warnings.filterwarnings('ignore')
+from scipy.interpolate import RBFInterpolator, interp1d
+from scipy.optimize import brentq
+
+
 """
 composite_k_nomograph.py
 ========================
@@ -378,57 +389,7 @@ def calc_E_eq(layers: list) -> tuple:
 # =============================================================================
 # SELF TEST
 # =============================================================================
-if __name__ == "__main__":
-    ck = CompositeK()
 
-    print("=" * 60)
-    print("AASHTO Figure 3.3 — Composite K Module Self Test")
-    print("=" * 60)
-
-    # Test Turning Line
-    print("\n[Turning Line]")
-    for mr in [3000, 5000, 7000, 10000]:
-        d = ck.turning.mr_to_dsb(mr)
-        print(f"  M_R={mr:6,} psi  ->  D_SB={d:.2f} inches")
-
-    # Test Mode C (ตรวจสอบกับ nomograph)
-    print("\n[Mode C: E_SB + D_SB -> k∞]")
-    tests = [
-        (20000, 10.0),
-        (50000, 8.0),
-        (100000, 6.0),
-        (200000, 5.0),
-    ]
-    for e, d in tests:
-        r = ck.mode_C(5000, e, d)
-        print(f"  E={e:>8,} psi, D={d:.1f}\"  ->  k∞={r['k_actual_pci']:.0f} pci")
-
-    # Test Mode A (ตัวอย่างจากการออกแบบ)
-    print("\n[Mode A: M_R + k∞ + E_SB -> D_SB required]")
-    cbr = 3
-    MR  = cbr * 1500
-    k_target = 200
-    print(f"  CBR={cbr}% -> M_R={MR:,} psi, k∞ target={k_target} pci")
-    for name, E_MPa in list(DEFAULT_MATERIALS.items())[:4]:
-        E_psi = E_MPa * MPa_TO_PSI
-        r = ck.mode_A(MR, k_target, E_psi)
-        print(f"  {name[:35]:35s}  D_req={r['D_required_in']:.2f}\" ({r['D_required_cm']:.1f} cm)")
-
-    # Test Multilayer
-    print("\n[Multilayer: 2 ชั้น]")
-    layers = [
-        {"name": "หินคลุกผสมซีเมนต์ UCS 24.5 ksc",   "E_MPa": 850, "D_cm": 20},
-        {"name": "รองพื้นทางวัสดุมวลรวม CBR 25%",     "E_MPa": 150, "D_cm": 15},
-    ]
-    r = ck.multilayer_k(layers, MR_psi=7000)
-    print(f"  E_eq={r['E_eq_MPa']} MPa ({r['E_eq_psi']:,} psi)")
-    print(f"  D_total={r['D_total_cm']} cm ({r['D_total_in']:.3f} in)")
-    print(f"  k∞ actual={r['k_actual_pci']} pci")
-
-
-# ======================================================================
-# STREAMLIT APP
-# ======================================================================
 
 st.set_page_config(
     page_title="Composite k — AASHTO 1993",
