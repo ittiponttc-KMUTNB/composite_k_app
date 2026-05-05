@@ -45,55 +45,34 @@ TURNING_LINE_DATA = {
                 8.6,  8.1,  7.7,  7.1,  6.4,  5.6]
 }
 
-# Upper Chart: k∞ curves
-# แต่ละ curve คือ k∞ คงที่ มีจุด (E_SB psi, D_SB inches)
-# Digitized จาก nomograph (log-log space)
-UPPER_CHART_DATA = {
-    50: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000],
-        "D_in":  [19.5,  18.2,  16.5,  14.5,  13.0,  11.8,   10.2,   9.0]
-    },
-    100: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000],
-        "D_in":  [16.0,  14.5,  12.8,  11.0,  9.8,   8.8,    7.6,    6.8,    5.8]
-    },
-    200: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000],
-        "D_in":  [13.0,  11.5,  10.0,  8.5,   7.5,   6.7,    5.8,    5.2,    4.4,    3.5]
-    },
-    300: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000],
-        "D_in":  [11.2,  9.8,   8.5,   7.2,   6.3,   5.6,    4.8,    4.3,    3.6,    2.9]
-    },
-    400: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000],
-        "D_in":  [10.0,  8.8,   7.6,   6.4,   5.6,   5.0,    4.3,    3.8,    3.2,    2.5,    2.0]
-    },
-    500: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000],
-        "D_in":  [9.2,   8.0,   6.9,   5.8,   5.1,   4.5,    3.9,    3.4,    2.9,    2.2,    1.8]
-    },
-    600: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000],
-        "D_in":  [8.5,   7.5,   6.4,   5.4,   4.7,   4.2,    3.6,    3.2,    2.6,    2.0,    1.6,    1.3]
-    },
-    800: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000],
-        "D_in":  [7.5,   6.6,   5.7,   4.8,   4.2,   3.7,    3.2,    2.8,    2.3,    1.8,    1.4,    1.1]
-    },
-    1000: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000],
-        "D_in":  [6.8,   6.0,   5.2,   4.3,   3.8,   3.3,    2.8,    2.5,    2.1,    1.6,    1.2,    1.0]
-    },
-    1500: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000],
-        "D_in":  [5.8,   5.1,   4.4,   3.7,   3.2,   2.8,    2.4,    2.1,    1.7,    1.3,    1.0,    0.8]
-    },
-    2000: {
-        "E_psi": [15000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000],
-        "D_in":  [5.2,   4.6,   3.9,   3.3,   2.8,   2.5,    2.1,    1.9,    1.5,    1.1,    0.9,    0.7]
-    }
-}
+# Calibration Data 3D จาก Nomograph จริง (อาจารย์อ่านค่าโดยตรง)
+# 34 จุด ครอบคลุม E_SB, D_SB, M_R ทุกช่วง
+CALIB_POINTS = [
+    # (E_SB psi, D_SB in, M_R psi, k∞ pci)
+    # D=6, M_R=4500
+    (15000,   6,  4500,  220), (50000,   6,  4500,  300), (100000,  6,  4500,  350),
+    # D=10, M_R=4500
+    (15000,  10,  4500,  250), (50000,  10,  4500,  350), (100000, 10,  4500,  400),
+    # D=14, M_R=4500
+    (15000,  14,  4500,  300), (30000,  14,  4500,  350), (50000,  14,  4500,  420),
+    (75000,  14,  4500,  450),
+    # D=18, M_R=4500
+    (15000,  18,  4500,  320), (100000, 18,  4500,  550), (200000, 18,  4500,  650),
+    # D=20, M_R=4500
+    (100000, 20,  4500,  250), (400000, 20,  4500,  990), (1000000,20,  4500, 1300),
+    # D=14, M_R ต่างๆ
+    (15000,  14,  3000,  250), (50000,  14,  3000,  350),
+    (15000,  14,  7500,  460), (50000,  14,  7500,  600),
+    (15000,  14, 15000,  760), (50000,  14, 15000, 1000),
+    # D=6, M_R ต่างๆ
+    (15000,   6,  3000,   80), (50000,   6,  3000,  160),
+    (15000,   6,  7500,  390), (50000,   6,  7500,  450),
+    (15000,   6, 15000,  600), (50000,   6, 15000,  800),
+    # D=20, M_R ต่างๆ
+    (15000,  20,  3000,  290), (100000, 20,  3000,  500),
+    (15000,  20,  7500,  500), (100000, 20,  7500,  990),
+    (15000,  20, 15000,  800), (100000, 20, 15000, 1400),
+]
 
 # =============================================================================
 # วัสดุ Default (ชื่อภาษาไทย + E MPa)
@@ -149,41 +128,39 @@ class UpperChart:
     """
 
     def __init__(self):
-        points = []   # (log E_SB, log D_SB)
-        values = []   # log k∞
+        # 3D Calibration: (log E, log D, log MR) -> log k∞
+        pts  = np.array([[np.log10(e), np.log10(d), np.log10(mr)]
+                          for e,d,mr,k in CALIB_POINTS])
+        vals = np.array([np.log10(k) for e,d,mr,k in CALIB_POINTS])
 
-        for k_val, data in UPPER_CHART_DATA.items():
-            for e, d in zip(data["E_psi"], data["D_in"]):
-                if e > 0 and d > 0:
-                    points.append([np.log10(e), np.log10(d)])
-                    values.append(np.log10(k_val))
+        self._points = pts
+        self._values = vals
+        self._rbf = RBFInterpolator(pts, vals,
+                                     kernel='thin_plate_spline', smoothing=0.0)
 
-        self._points = np.array(points)
-        self._values = np.array(values)
-        self._rbf = RBFInterpolator(self._points, self._values,
-                                     kernel='thin_plate_spline', smoothing=0.01)
+        # bounds
+        self.E_min, self.E_max = 15000,  1000000
+        self.D_min, self.D_max = 6.0,    20.0
+        self.k_min, self.k_max = 50,     2000
+        self.MR_min,self.MR_max= 3000,   15000
 
-        # bounds สำหรับ warning
-        self.E_min, self.E_max = 15000, 1000000   # psi
-        self.D_min, self.D_max = 0.5,   20.0      # inches
-        self.k_min, self.k_max = 50,    2000       # pci
-
-    def get_k(self, E_psi: float, D_in: float) -> float:
-        """(E_SB psi, D_SB inches) -> k∞ (pci)"""
-        pt = np.array([[np.log10(E_psi), np.log10(D_in)]])
+    def get_k(self, E_psi: float, D_in: float, MR_psi: float = 4500) -> float:
+        """(E_SB psi, D_SB inches, M_R psi) -> k∞ (pci)"""
+        MR_psi = np.clip(MR_psi, self.MR_min, self.MR_max)
+        pt = np.array([[np.log10(E_psi), np.log10(D_in), np.log10(MR_psi)]])
         log_k = float(self._rbf(pt)[0])
         k = 10 ** log_k
         return float(np.clip(k, self.k_min, self.k_max))
 
     def get_D(self, E_psi: float, k_target: float,
-              D_bounds=(0.5, 20.0)) -> float:
+              D_bounds=(6.0, 20.0), MR_psi: float = 4500) -> float:
         """
         กำหนด E_SB + k∞ target -> หา D_SB (inches)
         ใช้ bisection search
         """
         from scipy.optimize import brentq
         def obj(d):
-            return self.get_k(E_psi, d) - k_target
+            return self.get_k(E_psi, d, MR_psi) - k_target
 
         d_lo, d_hi = D_bounds
         try:
@@ -200,14 +177,14 @@ class UpperChart:
             return float('nan')
 
     def get_E(self, D_in: float, k_target: float,
-              E_bounds=(15000, 1000000)) -> float:
+              E_bounds=(15000, 1000000), MR_psi: float = 4500) -> float:
         """
         กำหนด D_SB + k∞ target -> หา E_SB (psi)
         ใช้ bisection search
         """
         from scipy.optimize import brentq
         def obj(e):
-            return self.get_k(e, D_in) - k_target
+            return self.get_k(e, D_in, MR_psi) - k_target
 
         e_lo, e_hi = E_bounds
         try:
@@ -280,7 +257,7 @@ class CompositeK:
     # ------------------------------------------------------------------
     def mode_C(self, MR_psi: float, E_psi: float,
                D_in: float) -> dict:
-        k_actual = self.upper.get_k(E_psi, D_in)
+        k_actual = self.upper.get_k(E_psi, D_in, MR_psi)
         return {
             "mode": "C",
             "MR_psi":      MR_psi,
@@ -325,7 +302,7 @@ class CompositeK:
         E_eq_psi = (num / den) ** 3
         E_eq_MPa = E_eq_psi / MPa_TO_PSI
 
-        k_actual = self.upper.get_k(E_eq_psi, D_total_in)
+        k_actual = self.upper.get_k(E_eq_psi, D_total_in, MR_psi)
 
         return {
             "mode":         "multilayer",
@@ -349,7 +326,7 @@ class CompositeK:
         results = []
         for name, E_MPa in DEFAULT_MATERIALS.items():
             E_psi = E_MPa * MPa_TO_PSI
-            D_in  = self.upper.get_D(E_psi, k_target_pci)
+            D_in  = self.upper.get_D(E_psi, k_target_pci, MR_psi=4500)
             D_cm  = D_in / CM_TO_INCH if not np.isnan(D_in) else float('nan')
             results.append({
                 "material":   name,
